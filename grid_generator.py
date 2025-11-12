@@ -7,7 +7,7 @@ Drone Flight Grid Generator
 - Output: GeoJSON of grid cells in EPSG:4326.
 
 Usage example:
-    python grid_generator.py --north 47.70 --south 47.50 --west -122.40 --east -122.20 --cell 1000 \
+    python grid_generator.py --north 47.0 --south 48.0 --west -121.0 --east -122.0 --cell 1000 \
         --out output/grid_1km.geojson
 """
 
@@ -71,10 +71,10 @@ def build_grid(north: float, south: float, west: float, east: float, cell_m: flo
 
 def main():
     ap = argparse.ArgumentParser(description="Generate a geospatial grid over a lat/lon bounding box.")
-    ap.add_argument("--north", type=float, required=True, help="Northern latitude (e.g., 47.70)")
-    ap.add_argument("--south", type=float, required=True, help="Southern latitude (e.g., 47.50)")
-    ap.add_argument("--west",  type=float, required=True, help="Western longitude (e.g., -122.40)")
-    ap.add_argument("--east",  type=float, required=True, help="Eastern longitude (e.g., -122.20)")
+    ap.add_argument("--north", type=float, required=True, help="Northern latitude (e.g., 47.00)")
+    ap.add_argument("--south", type=float, required=True, help="Southern latitude (e.g., 48.00)")
+    ap.add_argument("--west",  type=float, required=True, help="Western longitude (e.g., -121.00)")
+    ap.add_argument("--east",  type=float, required=True, help="Eastern longitude (e.g., -122.00)")
     ap.add_argument("--cell",  type=float, required=True, help="Cell size in meters (e.g., 1000)")
     ap.add_argument("--out",   type=str,   default="output/grid.geojson", help="Output GeoJSON path")
     args = ap.parse_args()
