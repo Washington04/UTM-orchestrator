@@ -30,7 +30,7 @@ jobs:
           out_file="output/grid_${ts}.geojson"
           python grid_generator.py \
             --north 48.0 --south 47.0 --west -122.5 --east -121.5 \
-            --cell 1000 --out "$out_file"
+            --cell 100 --out "$out_file"
           echo "Generated $out_file"
           ls -lh output
 
