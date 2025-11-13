@@ -1,0 +1,6 @@
+Day 1: established project. built grid (covered most of Western WA). readme, etc. 1000m cell size. Running 
+and testing directly out of GH for now. 
+
+Day 2: added license. tried to reduce grid cell size to 100m make it more realistic for drone deconfliction 
+but this 100x'd the number of cells so I in order to reduce the overall area size I imported a geoJSON of 
+Seattle city limits from https://data-seattlecitygis.opendata.arcgis.com/. 
