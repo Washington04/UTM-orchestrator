@@ -71,23 +71,28 @@ def build_grid(north: float, south: float, west: float, east: float, cell_m: flo
 
 def main():
     ap = argparse.ArgumentParser(description="Generate a geospatial grid over a lat/lon bounding box.")
-    ap.add_argument("--north", type=float, required=True, help="Northern latitude (e.g., 48.00)")
-    ap.add_argument("--south", type=float, required=True, help="Southern latitude (e.g., 47.00)")
-    ap.add_argument("--west",  type=float, required=True, help="Western longitude (e.g., -122.50)")
-    ap.add_argument("--east",  type=float, required=True, help="Eastern longitude (e.g., -121.50)")
+    ap.add_argument(
+    "--boundary",
+    type=str,
+    required=True,
+    help="Boundary polygon (GeoJSON/SHP). Grid will be clipped to this shape."
+)
     ap.add_argument("--cell",  type=float, required=True, help="Cell size in meters (e.g., 100)")
     ap.add_argument("--out",   type=str,   default="output/grid.geojson", help="Output GeoJSON path")
     args = ap.parse_args()
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
 
-    gdf = build_grid(
-        north=args.north,
-        south=args.south,
-        west=args.west,
-        east=args.east,
-        cell_m=args.cell
-    )
+   minx, miny, maxx, maxy = bounds_from_boundary(args.boundary)
+
+gdf = build_grid(
+    north=maxy,
+    south=miny,
+    west=minx,
+    east=maxx,
+    cell_m=args.cell,
+)
+gdf = clip_to_boundary(gdf, args.boundary)
     gdf.to_file(args.out, driver="GeoJSON")
     print(f"[OK] Wrote {len(gdf)} cells to {args.out}")
 
