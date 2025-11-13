@@ -1,41 +1,5 @@
-name: Run Drone Grid Generator
+python grid_generator.py \
+  --boundary data/seattle_boundary.geojson \
+  --cell 100 \
+  --out "$out_file"
 
-on:
-  workflow_dispatch: {}   # allows manual runs from the Actions tab
-
-jobs:
-  run-grid:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write     # so the workflow can commit files back to the repo
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Generate 100m grid (Seattle to Snoqualmie example)
-        run: |
-          mkdir -p output
-          ts=$(date +'%Y%m%d_%H%M%S')
-          out_file="output/grid_${ts}.geojson"
-          python grid_generator.py \
-            --north 48.0 --south 47.0 --west -122.5 --east -121.5 \
-            --cell 100 --out "$out_file"
-          echo "Generated $out_file"
-          ls -lh output
-
-      - name: Commit results
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "Auto: generated new grid output"
-          file_pattern: output/*.geojson
