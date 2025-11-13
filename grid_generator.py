@@ -7,7 +7,7 @@ Drone Flight Grid Generator
 - Output: GeoJSON of grid cells in EPSG:4326.
 
 Usage example:
-    python grid_generator.py --north 48.0 --south 47.0 --west -122.5 --east -121.5 --cell 1000 \
+    python grid_generator.py --north 48.0 --south 47.0 --west -122.5 --east -121.5 --cell 100 \
         --out output/grid_1km.geojson
 """
 
@@ -75,7 +75,7 @@ def main():
     ap.add_argument("--south", type=float, required=True, help="Southern latitude (e.g., 47.00)")
     ap.add_argument("--west",  type=float, required=True, help="Western longitude (e.g., -122.50)")
     ap.add_argument("--east",  type=float, required=True, help="Eastern longitude (e.g., -121.50)")
-    ap.add_argument("--cell",  type=float, required=True, help="Cell size in meters (e.g., 1000)")
+    ap.add_argument("--cell",  type=float, required=True, help="Cell size in meters (e.g., 100)")
     ap.add_argument("--out",   type=str,   default="output/grid.geojson", help="Output GeoJSON path")
     args = ap.parse_args()
 
