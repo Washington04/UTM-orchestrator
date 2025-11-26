@@ -123,46 +123,16 @@ def clip_and_save(
 # ---------------------------------------------------------------------
 
 def main() -> None:
-    # 1) Class Airspace – WA (optional), bbox, clipped to Seattle
+
+    # UAS Facility Data – WA-only (if column exists), bbox, clipped to Seattle
     clip_and_save(
-        name_in="class_airspace.geojson",
-        name_out="class_airspace_seattle.geojson",
-        state_field="STATE",
+        name_in="FAA_UAS_FacilityMap_Data.geojson",
+        name_out="uasfm_seattle.geojson",
+        state_field="STATE",   # will be ignored if this column doesn't exist
         state_value="WA",
         do_clip=True,
         use_bbox=True,
     )
-
-    # 2) Special Use Airspace (SUA) – WA-only, NO bbox, NO clip (WA-wide)
-    clip_and_save(
-        name_in="special_use_airspace.geojson",
-        name_out="special_use_airspace_wa.geojson",
-        state_field="STATE",
-        state_value="WA",
-        do_clip=False,   # keep full WA extent
-        use_bbox=False,  # don't restrict to Seattle bbox
-    )
-
-    # 3) Stadiums – WA-only, bbox, clipped to Seattle
-    clip_and_save(
-        name_in="stadiums.geojson",
-        name_out="stadiums_seattle.geojson",
-        state_field="STATE",
-        state_value="WA",
-        do_clip=True,
-        use_bbox=True,
-    )
-
-    # 4) Airports – WA-only, bbox, clipped to Seattle
-    clip_and_save(
-        name_in="airports.geojson",
-        name_out="airports_seattle.geojson",
-        state_field="STATE",
-        state_value="WA",
-        do_clip=True,
-        use_bbox=True,
-    )
-
 
 if __name__ == "__main__":
     main()

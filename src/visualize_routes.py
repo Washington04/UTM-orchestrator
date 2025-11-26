@@ -40,20 +40,9 @@ CLASS_AIRSPACE_FILE = "data/airspace/processed/class_airspace_seattle.geojson"
 SUA_FILE = "data/airspace/processed/special_use_airspace_wa.geojson"
 STADIUMS_FILE = "data/airspace/processed/stadiums_seattle.geojson"
 AIRPORTS_FILE = "data/airspace/processed/airports_seattle.geojson"
+UASFM_FILE = "data/airspace/processed/uasfm_seattle.geojson"
 
-def add_polygon_layer(map_obj, geojson_path, layer_name, color, weight=1):
-    """Add a polygon/multipolygon GeoJSON as a toggleable Folium layer."""
 
-    gdf = gpd.read_file(geojson_path)
-
-    folium.GeoJson(
-        gdf,
-        name=layer_name,
-        style_function=lambda feature: {
-            "color": color,
-            "weight": weight,
-        },
-    ).add_to(map_obj)
 
 def find_latest_flights_file() -> Optional[Path]:
     pattern = str(OUTPUT_DIR / "flights_*.json")
@@ -123,6 +112,9 @@ def add_city_limits_layer(map_obj):
 
 
 def add_flight_routes_layer(m: folium.Map, flights: Dict) -> None:
+    # Group all flight legs into a single toggleable layer
+    flights_group = folium.FeatureGroup(name="Flights", show=True)
+
     for f in flights.get("flights", []):
         origin = f.get("origin_poi") or {}
         dest = f.get("destination_poi") or {}
@@ -136,32 +128,20 @@ def add_flight_routes_layer(m: folium.Map, flights: Dict) -> None:
             h_lat = float(hub["centroid_lat"])
             h_lon = float(hub["centroid_lon"])
         except (KeyError, TypeError, ValueError):
-            # Skip flights with incomplete coordinates
             continue
 
         tooltip = f.get("flight_id", "flight")
         conflict_legs = set(f.get("obstacle_conflict_legs", []))
         conflict_oas = f.get("obstacle_conflict_oas", [])
 
-        # Debug: log which legs & obstacles this flight conflicts with
         print(
             f"{tooltip}: legs={sorted(conflict_legs)}, obstacles={conflict_oas}"
         )
 
-        # Define each leg explicitly
         legs = [
-            (
-                "hub_to_merchant",
-                [[h_lat, h_lon], [o_lat, o_lon]],
-            ),
-            (
-                "merchant_to_customer",
-                [[o_lat, o_lon], [d_lat, d_lon]],
-            ),
-            (
-                "customer_to_hub",
-                [[d_lat, d_lon], [h_lat, h_lon]],
-            ),
+            ("hub_to_merchant", [[h_lat, h_lon], [o_lat, o_lon]]),
+            ("merchant_to_customer", [[o_lat, o_lon], [d_lat, d_lon]]),
+            ("customer_to_hub", [[d_lat, d_lon], [h_lat, h_lon]]),
         ]
 
         for leg_name, leg_points in legs:
@@ -177,7 +157,10 @@ def add_flight_routes_layer(m: folium.Map, flights: Dict) -> None:
                 color=line_color,
                 tooltip=f"{tooltip} ({leg_name})",
                 dash_array=dash,
-            ).add_to(m)
+            ).add_to(flights_group)
+
+    flights_group.add_to(m)
+
 
 
 def add_obstacles_layer(m: folium.Map) -> None:
@@ -203,33 +186,6 @@ def add_obstacles_layer(m: folium.Map) -> None:
             fill_color="yellow",
             tooltip=tooltip,
         ).add_to(m)
-
-
-def add_polygon_layer(map_obj, geojson_path, layer_name, color, weight=1):
-    """Add a polygon/multipolygon GeoJSON as an outline-only layer with selective hover info."""
-    gdf = gpd.read_file(geojson_path)
-
-    # Only show these four fields if they actually exist
-    desired_fields = ["ICAO_ID", "NAME", "LOWER", "LOCAL_TYPE", "LOWER_VAL", "LOWER_CODE", "UPPER_VAL", "UPPER_CODE"]
-    tooltip_fields = [c for c in desired_fields if c in gdf.columns]
-
-    folium.GeoJson(
-        gdf,
-        name=layer_name,
-        style_function=lambda feature: {
-            "color": color,
-            "weight": weight,
-            "fill": False,    # outline-only
-        },
-        highlight_function=lambda feature: {
-            "weight": weight + 1,
-        },
-        tooltip=folium.GeoJsonTooltip(
-            fields=tooltip_fields,
-            aliases=[f"{c}:" for c in tooltip_fields],
-            sticky=False,
-        ),
-    ).add_to(map_obj)
 
 
 def add_airports_layer(map_obj, geojson_path, layer_name="Airports"):
@@ -260,6 +216,64 @@ def add_airports_layer(map_obj, geojson_path, layer_name="Airports"):
         ).add_to(group)
 
     group.add_to(map_obj)
+
+
+
+def add_polygon_layer(
+    map_obj,
+    geojson_path,
+    layer_name,
+    color,
+    weight=1,
+    desired_fields=None,
+):
+    """Add a polygon/multipolygon GeoJSON as an outline-only layer with hover info."""
+    gdf = gpd.read_file(geojson_path)
+
+    # Default fields for "normal" airspace layers if none provided
+    if desired_fields is None:
+        desired_fields = [
+            "ICAO_ID",
+            "NAME",
+            "LOWER",
+            "LOCAL_TYPE",
+            "LOWER_VAL",
+            "LOWER_CODE",
+            "UPPER_VAL",
+            "UPPER_CODE",
+            "OBJECTID",
+            "CEILING",
+            "UNIT",
+            "APT1_ICAO",
+        ]
+
+    # Keep only requested fields that exist
+    tooltip_fields = [c for c in desired_fields if c in gdf.columns]
+
+    # Fallback: if none exist (e.g. UASFM has different schema), show all non-geometry fields
+    if not tooltip_fields:
+        tooltip_fields = [c for c in gdf.columns if c != "geometry"]
+
+    folium.GeoJson(
+        gdf,
+        name=layer_name,
+        style_function=lambda feature: {
+            "color": color,
+            "weight": weight,
+            "fill": False,
+        },
+        highlight_function=lambda feature: {
+            "weight": weight + 1,
+            "fill": True,
+            "fillOpacity": 0.4,  # light fill on hover
+        },
+        tooltip=folium.GeoJsonTooltip(
+            fields=tooltip_fields,
+            aliases=[f"{c}:" for c in tooltip_fields],
+            sticky=False,
+        ),
+    ).add_to(map_obj)
+
 
 
 def build_map(flights: Dict) -> folium.Map:
@@ -306,11 +320,26 @@ def build_map(flights: Dict) -> folium.Map:
         color="#9467bd",
     )
 
+    add_polygon_layer(
+        map_obj=m,
+        geojson_path=UASFM_FILE,
+        layer_name="UAS Facility Map",
+        color="#ff7f00",   
+    )
+
     add_airports_layer(
         map_obj=m,
         geojson_path=AIRPORTS_FILE,
         layer_name="Airports",
     )
+
+    add_polygon_layer(
+    map_obj=m,
+    geojson_path=UASFM_FILE,
+    layer_name="UAS Facility Map",
+    color="#ff7f00",   # orange, visible on satellite
+    weight=2,
+)
 
     folium.LayerControl().add_to(m)
     return m
