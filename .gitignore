@@ -209,3 +209,9 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+data/obstacles/faa_dof.dat
+data/airspace/raw/airports.geojson
+data/airspace/raw/class_airspace.geojson
+data/airspace/raw/special_use_airspace.geojson
+data/airspace/raw/stadiums.geojson
+.DS_Store
