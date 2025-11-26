@@ -19,9 +19,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 import geopandas as gpd
-
-
 import folium
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 # ---- Paths based on your repo layout ----
@@ -35,7 +35,25 @@ OBSTACLE_FILE = DATA_DIR / "obstacles" / "faa_dof_seattle.geojson"
 CITY_LIMITS_FILE = DATA_DIR / "seattle_city_limits.geojson"
 GRID_LATEST = OUTPUT_DIR / "output_latest.geojson"
 
+# Airspace layer paths (processed)
+CLASS_AIRSPACE_FILE = "data/airspace/processed/class_airspace_seattle.geojson"
+SUA_FILE = "data/airspace/processed/special_use_airspace_wa.geojson"
+STADIUMS_FILE = "data/airspace/processed/stadiums_seattle.geojson"
+AIRPORTS_FILE = "data/airspace/processed/airports_seattle.geojson"
 
+def add_polygon_layer(map_obj, geojson_path, layer_name, color, weight=1):
+    """Add a polygon/multipolygon GeoJSON as a toggleable Folium layer."""
+
+    gdf = gpd.read_file(geojson_path)
+
+    folium.GeoJson(
+        gdf,
+        name=layer_name,
+        style_function=lambda feature: {
+            "color": color,
+            "weight": weight,
+        },
+    ).add_to(map_obj)
 
 def find_latest_flights_file() -> Optional[Path]:
     pattern = str(OUTPUT_DIR / "flights_*.json")
@@ -87,12 +105,21 @@ def compute_map_center(flights: Dict) -> List[float]:
     return [sum(lats) / len(lats), sum(lons) / len(lons)]
 
 
-def add_city_limits_layer(m: folium.Map) -> None:
-    if CITY_LIMITS_FILE.exists():
-        folium.GeoJson(
-            data=str(CITY_LIMITS_FILE),
-            name="Seattle city limits",
-        ).add_to(m)
+def add_city_limits_layer(map_obj):
+    """Add Seattle city limits as an outline-only boundary (no fill)."""
+    city_limits = gpd.read_file(CITY_LIMITS_FILE)
+
+    # Use only the boundary so Leaflet treats it like a line, not a filled polygon
+    boundary = city_limits.boundary
+
+    folium.GeoJson(
+        boundary,
+        name="Seattle City Limits",
+        style_function=lambda feature: {
+            "color": "#0000ff",   
+            "weight": 2,          
+        },
+    ).add_to(map_obj)
 
 
 def add_flight_routes_layer(m: folium.Map, flights: Dict) -> None:
@@ -147,7 +174,6 @@ def add_flight_routes_layer(m: folium.Map, flights: Dict) -> None:
             folium.PolyLine(
                 locations=leg_points,
                 weight=line_weight,
-                opacity=0.8,
                 color=line_color,
                 tooltip=f"{tooltip} ({leg_name})",
                 dash_array=dash,
@@ -172,22 +198,119 @@ def add_obstacles_layer(m: folium.Map) -> None:
         folium.CircleMarker(
             location=[lat, lon],
             radius=4,
-            opacity=0.7,
             color="yellow",
             fill=True,
             fill_color="yellow",
-            fill_opacity=0.7,
             tooltip=tooltip,
         ).add_to(m)
 
 
+def add_polygon_layer(map_obj, geojson_path, layer_name, color, weight=1):
+    """Add a polygon/multipolygon GeoJSON as an outline-only layer with selective hover info."""
+    gdf = gpd.read_file(geojson_path)
+
+    # Only show these four fields if they actually exist
+    desired_fields = ["ICAO_ID", "NAME", "LOWER", "LOCAL_TYPE", "LOWER_VAL", "LOWER_CODE", "UPPER_VAL", "UPPER_CODE"]
+    tooltip_fields = [c for c in desired_fields if c in gdf.columns]
+
+    folium.GeoJson(
+        gdf,
+        name=layer_name,
+        style_function=lambda feature: {
+            "color": color,
+            "weight": weight,
+            "fill": False,    # outline-only
+        },
+        highlight_function=lambda feature: {
+            "weight": weight + 1,
+        },
+        tooltip=folium.GeoJsonTooltip(
+            fields=tooltip_fields,
+            aliases=[f"{c}:" for c in tooltip_fields],
+            sticky=False,
+        ),
+    ).add_to(map_obj)
+
+
+def add_airports_layer(map_obj, geojson_path, layer_name="Airports"):
+    gdf = gpd.read_file(geojson_path)
+
+    group = folium.FeatureGroup(name=layer_name, show=True)
+
+    for _, row in gdf.iterrows():
+        geom = row.geometry
+        if geom is None or geom.geom_type != "Point":
+            continue
+
+        lat = geom.y
+        lon = geom.x
+
+        name = row.get("NAME") or row.get("name") or "Airport"
+        ident = row.get("ident") or row.get("IDENT") or ""
+
+        label = f"{name}"
+        if ident:
+            label = f"{name} ({ident})"
+
+        folium.CircleMarker(
+            location=[lat, lon],
+            radius=5,
+            popup=label,
+            tooltip=label,
+        ).add_to(group)
+
+    group.add_to(map_obj)
+
+
 def build_map(flights: Dict) -> folium.Map:
     center = compute_map_center(flights)
+
     m = folium.Map(location=center, zoom_start=12)
+
+    folium.TileLayer(
+        tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        attr="Esri World Imagery",
+        name="Satellite",
+        overlay=False,
+        control=True,
+    ).add_to(m)
+
+# Optional: hide the default OpenStreetMap layer
+    m.options["layersControl"] = True
 
     add_city_limits_layer(m)
     add_obstacles_layer(m)       
     add_flight_routes_layer(m, flights)
+
+
+# --- Airspace layers ---
+    add_polygon_layer(
+        map_obj=m,
+        geojson_path=CLASS_AIRSPACE_FILE,
+        layer_name="Class Airspace",
+        weight=2,
+        color="#1f77b4",
+    )
+
+    add_polygon_layer(
+        map_obj=m,
+        geojson_path=SUA_FILE,
+        layer_name="Special Use Airspace (WA)",
+        color="#d62728",
+    )
+
+    add_polygon_layer(
+        map_obj=m,
+        geojson_path=STADIUMS_FILE,
+        layer_name="Stadiums",
+        color="#9467bd",
+    )
+
+    add_airports_layer(
+        map_obj=m,
+        geojson_path=AIRPORTS_FILE,
+        layer_name="Airports",
+    )
 
     folium.LayerControl().add_to(m)
     return m
