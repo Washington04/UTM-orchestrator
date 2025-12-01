@@ -41,6 +41,8 @@ SUA_FILE = "data/airspace/processed/special_use_airspace_wa.geojson"
 STADIUMS_FILE = "data/airspace/processed/stadiums_seattle.geojson"
 AIRPORTS_FILE = "data/airspace/processed/airports_seattle.geojson"
 UASFM_FILE = "data/airspace/processed/uasfm_seattle.geojson"
+SECONDARY_CONSTRAINTS_FILE = "data/airspace/processed/secondary_constraints_seattle.geojson"
+
 
 
 
@@ -164,19 +166,28 @@ def add_flight_routes_layer(m: folium.Map, flights: Dict) -> None:
 
 
 def add_obstacles_layer(m: folium.Map) -> None:
+    """Add obstacles as a toggleable layer."""
     if not OBSTACLE_FILE.exists():
         return
 
     gdf = gpd.read_file(OBSTACLE_FILE)
 
-    # Option 1: simple points as small markers
-    for _, row in gdf.iterrows():
-        lat = row["lat"]
-        lon = row["lon"]
-        agl = row.get("agl_ft", None)
-        obs_type = row.get("obstacle_type", "")
+    group = folium.FeatureGroup(name="Obstacles", show=True)
 
-        tooltip = f"{obs_type} ({agl} ft AGL)" if agl is not None else obs_type
+    for _, row in gdf.iterrows():
+        lat = row.get("lat")
+        lon = row.get("lon")
+        if lat is None or lon is None:
+            continue
+
+        agl = row.get("agl_ft")
+        obs_type = row.get("obstacle_type", "Obstacle")
+
+        tooltip = (
+            f"{obs_type} ({agl} ft AGL)"
+            if agl is not None
+            else obs_type
+        )
 
         folium.CircleMarker(
             location=[lat, lon],
@@ -185,7 +196,11 @@ def add_obstacles_layer(m: folium.Map) -> None:
             fill=True,
             fill_color="yellow",
             tooltip=tooltip,
-        ).add_to(m)
+        ).add_to(group)
+
+    group.add_to(m)
+
+
 
 
 def add_airports_layer(map_obj, geojson_path, layer_name="Airports"):
@@ -276,11 +291,74 @@ def add_polygon_layer(
 
 
 
+
+def add_secondary_constraints_layer(map_obj, geojson_path):
+    """
+    Add Secondary Constraints as a Folium layer.
+
+    - Polygons are drawn as-is.
+    - LineStrings are buffered to ~30 m and rendered as polygons.
+    - Hover shows: name_snake, altitude, priority.
+    """
+    gdf = gpd.read_file(geojson_path)
+
+    # Approximate 30 m in degrees (good enough near Seattle)
+    buffer_deg = 30 / 111_000  # ~0.00027 degrees
+
+    # Buffer corridors (LineString) into polygons
+    line_mask = gdf.geometry.geom_type == "LineString"
+    if line_mask.any():
+        gdf.loc[line_mask, "geometry"] = gdf.loc[line_mask, "geometry"].buffer(buffer_deg)
+
+    # Tooltip fields
+    desired_fields = ["name_snake", "altitude", "priority"]
+    tooltip_fields = [c for c in desired_fields if c in gdf.columns]
+
+    group = folium.FeatureGroup(name="Secondary Constraints", show=True)
+
+    folium.GeoJson(
+        gdf,
+        style_function=lambda feature: {
+            "color": "#ffcc00",  # yellow-ish, stands out on satellite
+            "weight": 3,
+            "fill": False,
+        },
+        highlight_function=lambda feature: {
+            "weight": 4,
+            "fill": True,
+            "fillOpacity": 0.2,
+        },
+        tooltip=folium.GeoJsonTooltip(
+            fields=tooltip_fields,
+            aliases=[f"{c}:" for c in tooltip_fields],
+            sticky=False,
+        ),
+    ).add_to(group)
+
+    group.add_to(map_obj)
+
+
+
+
 def build_map(flights: Dict) -> folium.Map:
     center = compute_map_center(flights)
 
     m = folium.Map(location=center, zoom_start=12)
 
+ # Local VFR sectional tiles (generated with gdal2tiles)
+    folium.TileLayer(
+        tiles="../data/tiles_sectional/{z}/{x}/{y}.png",
+        attr="Seattle Sectional (Local)",
+        name="Sectional (VFR)",
+        overlay=False,
+        control=True,
+        min_zoom=8,
+        max_zoom=13,
+        tms=True,  # gdal2tiles default scheme
+        opacity=0.5,
+    ).add_to(m)
+
+    #satellite map
     folium.TileLayer(
         tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         attr="Esri World Imagery",
@@ -288,6 +366,7 @@ def build_map(flights: Dict) -> folium.Map:
         overlay=False,
         control=True,
     ).add_to(m)
+
 
 # Optional: hide the default OpenStreetMap layer
     m.options["layersControl"] = True
@@ -327,19 +406,16 @@ def build_map(flights: Dict) -> folium.Map:
         color="#ff7f00",   
     )
 
+    add_secondary_constraints_layer(
+        map_obj=m,
+        geojson_path=SECONDARY_CONSTRAINTS_FILE,
+    )
+
     add_airports_layer(
         map_obj=m,
         geojson_path=AIRPORTS_FILE,
         layer_name="Airports",
     )
-
-    add_polygon_layer(
-    map_obj=m,
-    geojson_path=UASFM_FILE,
-    layer_name="UAS Facility Map",
-    color="#ff7f00",   # orange, visible on satellite
-    weight=2,
-)
 
     folium.LayerControl().add_to(m)
     return m

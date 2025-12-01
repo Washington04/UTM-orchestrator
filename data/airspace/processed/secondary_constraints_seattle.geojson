@@ -1,0 +1,43 @@
+{
+  "type": "FeatureCollection",
+  "name": "secondary_constraints_seattle",
+  "crs": { "type": "name", "properties": { "name": "EPSG:4326" } },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name_snake": "harborview_quiet_zone",
+        "altitude": 400,
+        "priority": "high"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-122.3235, 47.6055],
+            [-122.3205, 47.6055],
+            [-122.3205, 47.6025],
+            [-122.3235, 47.6025],
+            [-122.3235, 47.6055]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name_snake": "elliott_bay_corridor_eastwest",
+        "altitude": 300,
+        "priority": "medium"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-122.3600, 47.6050],
+          [-122.3400, 47.6050],
+          [-122.3200, 47.6050]
+        ]
+      }
+    }
+  ]
+}
