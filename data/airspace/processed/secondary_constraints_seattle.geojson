@@ -28,7 +28,7 @@
       "type": "Feature",
       "properties": {
         "name_snake": "elliott_bay_corridor_eastwest",
-        "altitude": 300,
+        "altitude": 400,
         "priority": "medium"
       },
       "geometry": {
@@ -49,7 +49,7 @@
         "priority": "medium"
       },
       "geometry": {
-        "type": "polygon",
+        "type": "Polygon",
         "coordinates": [
           [
            [-122.3500, 47.6186],
@@ -61,6 +61,32 @@
           ]
         ]
       }
+    },
+
+   {
+      "type": "Feature",
+      "properties": {
+        "name_snake": "lake_union_flotaplane_operations",
+        "altitude": 400,
+        "priority": "medium"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+           [-122.3400, 47.6222],
+           [-122.3400, 47.6375],
+           [-122.3444, 47.6441],
+           [-122.3289, 47.6441],
+           [-122.3317, 47.6222],
+           [-122.3400, 47.6222]
+          ]
+        ]
+      }
     }
+
+
+
+
   ]
 }

@@ -216,4 +216,6 @@ data/airspace/raw/special_use_airspace.geojson
 data/airspace/raw/stadiums.geojson
 .DS_Store
 data/airspace/raw/FAA_UAS_FacilityMap_Data.geojson
-data/tiles_sectional/
+debug_sectional.html
+debug_sectional.py
+temp_sectional.vrt

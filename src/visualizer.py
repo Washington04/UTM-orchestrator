@@ -35,6 +35,7 @@ OBSTACLE_FILE = DATA_DIR / "obstacles" / "faa_dof_seattle.geojson"
 CITY_LIMITS_FILE = DATA_DIR / "seattle_city_limits.geojson"
 GRID_LATEST = OUTPUT_DIR / "output_latest.geojson"
 
+
 # Airspace layer paths (processed)
 CLASS_AIRSPACE_FILE = "data/airspace/processed/class_airspace_seattle.geojson"
 SUA_FILE = "data/airspace/processed/special_use_airspace_wa.geojson"
@@ -42,7 +43,7 @@ STADIUMS_FILE = "data/airspace/processed/stadiums_seattle.geojson"
 AIRPORTS_FILE = "data/airspace/processed/airports_seattle.geojson"
 UASFM_FILE = "data/airspace/processed/uasfm_seattle.geojson"
 SECONDARY_CONSTRAINTS_FILE = "data/airspace/processed/secondary_constraints_seattle.geojson"
-
+STADIUM_BUFFERS_FILE = "data/airspace/processed/stadiums_3nm.geojson"
 
 
 
@@ -315,11 +316,14 @@ def add_polygon_layer(
             "color": color,
             "weight": weight,
             "fill": False,
+            "fillOpacity": 0.6,  # light fill on hover
+            "fillColor":"red",
         },
         highlight_function=lambda feature: {
             "weight": weight + 1,
             "fill": True,
-            "fillOpacity": 0.4,  # light fill on hover
+            "fillOpacity": 0.6,  # light fill on hover
+            "fillColor":"red",
         },
         tooltip=folium.GeoJsonTooltip(
             fields=tooltip_fields,
@@ -331,13 +335,13 @@ def add_polygon_layer(
 
 
 
-def add_secondary_constraints_layer(map_obj, geojson_path):
+def add_secondary_constraints_layer(map_obj, geojson_path, layer_name="Secondary Constraints"):
     """
-    Add Secondary Constraints as a Folium layer.
+    Add Secondary Constraints-style layer as a Folium layer.
 
     - Polygons are drawn as-is.
     - LineStrings are buffered to ~30 m and rendered as polygons.
-    - Hover shows: name_snake, altitude, priority.
+    - Hover shows: name_snake, altitude, priority (if present).
     """
     gdf = gpd.read_file(geojson_path)
 
@@ -353,16 +357,16 @@ def add_secondary_constraints_layer(map_obj, geojson_path):
     desired_fields = ["name_snake", "altitude", "priority"]
     tooltip_fields = [c for c in desired_fields if c in gdf.columns]
 
-    group = folium.FeatureGroup(name="Secondary Constraints", show=True)
+    group = folium.FeatureGroup(name=layer_name, show=True)
 
     folium.GeoJson(
         gdf,
         style_function=lambda feature: {
-            "color":"white",  
+            "color": "white",
             "weight": 2,
             "fill": True,
-            "fillOpacity":0.6,
-            "fillColor":"red",
+            "fillOpacity": 0.6,
+            "fillColor": "red",
         },
         highlight_function=lambda feature: {
             "weight": 4,
@@ -384,7 +388,7 @@ def add_secondary_constraints_layer(map_obj, geojson_path):
 def build_map(flights: Dict) -> folium.Map:
     center = compute_map_center(flights)
 
-    m = folium.Map(location=center, zoom_start=12)
+    m = folium.Map(location=center, zoom_start=10, tiles=None)
 
  # Local VFR sectional tiles (generated with gdal2tiles)
     folium.TileLayer(
@@ -395,8 +399,8 @@ def build_map(flights: Dict) -> folium.Map:
         control=True,
         min_zoom=8,
         max_zoom=13,
-        tms=True,  # gdal2tiles default scheme
-        opacity=0.5,
+        opacity=0.6,
+        tms=True,     
     ).add_to(m)
 
     #satellite map
@@ -425,20 +429,13 @@ def build_map(flights: Dict) -> folium.Map:
         geojson_path=CLASS_AIRSPACE_FILE,
         layer_name="Class Airspace",
         weight=2,
-        color="#caf51f",
+        color="yellow",
     )
 
     add_polygon_layer(
         map_obj=m,
         geojson_path=SUA_FILE,
         layer_name="Special Use Airspace (WA)",
-        color="#d62728",
-    )
-
-    add_polygon_layer(
-        map_obj=m,
-        geojson_path=STADIUMS_FILE,
-        layer_name="Stadiums",
         color="red",
     )
 
@@ -446,7 +443,18 @@ def build_map(flights: Dict) -> folium.Map:
         map_obj=m,
         geojson_path=UASFM_FILE,
         layer_name="UAS Facility Map",
-        color="#ff7f00",   
+        color="red", 
+    )
+
+    add_secondary_constraints_layer(
+        map_obj=m,
+        geojson_path=STADIUM_BUFFERS_FILE,
+        layer_name="Stadium Buffers",
+    )
+    add_secondary_constraints_layer(
+        map_obj=m,
+        geojson_path=STADIUMS_FILE,
+        layer_name="Stadiums",
     )
 
     add_secondary_constraints_layer(

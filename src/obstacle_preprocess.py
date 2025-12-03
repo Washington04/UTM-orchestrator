@@ -30,7 +30,7 @@ def main():
     clipped = gpd.clip(dof, seattle)
     print(f"Obstacles in Seattle AOI (all AGL): {len(clipped)}")
 
-    # Filter out obstacles below 218 ft AGL
+    # Filter out obstacles below 400 ft AGL
     if "agl_ft" not in clipped.columns:
         raise KeyError("Expected 'agl_ft' column in DOF GeoDataFrame")
     
@@ -52,6 +52,31 @@ def main():
     buffered.to_file(OUTPUT, driver="GeoJSON")
 
     print(f"Output saved to: {OUTPUT}")
+
+    # ADD STADIUM 3-NM BUFFERS HERE
+    print("Processing 3 NM stadium buffers...")
+
+    STADIUM_SRC = Path("data/airspace/processed/stadiums_seattle.geojson")
+    STADIUM_OUT = Path("data/airspace/processed/stadiums_3nm.geojson")
+
+    if STADIUM_SRC.exists():
+        stadiums = gpd.read_file(STADIUM_SRC)
+
+        # Project to meters, apply 3 NM buffer, project back to WGS84
+        stadiums_3857 = stadiums.to_crs(epsg=3857)
+        STADIUM_BUFFER_M = 3 * 1852  # 3 nautical miles in meters
+        stadiums_3857["geometry"] = stadiums_3857.geometry.buffer(STADIUM_BUFFER_M)
+        stadiums_out = stadiums_3857.to_crs(epsg=4326)
+
+        # Minimal metadata
+        stadiums_out["name_snake"] = "stadium_3nm"
+        stadiums_out["priority"] = "high"
+
+        STADIUM_OUT.parent.mkdir(parents=True, exist_ok=True)
+        stadiums_out.to_file(STADIUM_OUT, driver="GeoJSON")
+        print(f"Stadium buffer output saved to: {STADIUM_OUT}")
+    else:
+        print(f"⚠ Stadium file missing, skipping: {STADIUM_SRC}")
 
 if __name__ == "__main__":
     main()
