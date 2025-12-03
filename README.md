@@ -2,7 +2,7 @@
 
 _A lightweight, standards-aligned UAS Traffic Management (UTM) simulation environment_
 
-Note: UTM Orchestrator is a learning project to explore UTM technical challenges, geospatial approaches, and airspace interoperability. Contributions, suggestions, and discussions are welcome, please add any to UTM-orchestrator/community_notes. 
+Note: UTM Orchestrator is a learning project to explore UTM technical challenges, geospatial approaches, and airspace interoperability. Contributions, suggestions, and discussions are welcome. Please add them to UTM-orchestrator/community_notes. 
 
 ***
 
@@ -93,7 +93,7 @@ UTM Orchestrator is designed with reference to the FAA, ASTM, and international 
 
 **Long-Term** 
 - UTM Orchestrator aims to serve as a sandbox environment for:
-  - Simulation studies
+  - Exploring tradeoffs in UTM decisions
   - Strategic coordination testing
   - Rapid prototyping of UTM concepts
 
@@ -103,7 +103,7 @@ Goal is to provide a simplified environment mirroring the ecosystem emerging fro
 
 **Secondary Constraints (User-Defined Airspace Conditions)**
 
-Secondary Constraints are custom airspace shapes you manually define to represent quiet zones, voluntary avoidance areas, temporary corridors, safety buffers, or any other non-regulatory constraint relevant to UTM.
+Secondary Constraints are custom airspace restrictions which represent quiet zones, voluntary avoidance areas, temporary corridors, safety buffers, or any other non-regulatory constraint relevant to UTM.
 
 All constraints live inside:
 data/airspace/processed/secondary_constraints_seattle.geojson
@@ -177,7 +177,7 @@ data/airspace/processed/secondary_constraints_seattle.geojson
 Add, modify, or delete a Feature.
 
 Run:
-python src/visualize_routes.py
+python src/visualizer.py
 
 
 Open the most recently generated map in output/ and toggle Secondary Constraints.
