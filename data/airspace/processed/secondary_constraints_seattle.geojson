@@ -23,6 +23,7 @@
         ]
       }
     },
+
     {
       "type": "Feature",
       "properties": {
@@ -36,6 +37,28 @@
           [-122.3600, 47.6050],
           [-122.3400, 47.6050],
           [-122.3200, 47.6050]
+        ]
+      }
+    },
+
+    {
+      "type": "Feature",
+      "properties": {
+        "name_snake": "seattle_center_open_air_assembly",
+        "altitude": 400,
+        "priority": "medium"
+      },
+      "geometry": {
+        "type": "polygon",
+        "coordinates": [
+          [
+           [-122.3500, 47.6186],
+           [-122.3472, 47.6214],
+           [-122.3472, 47.6242],
+           [-122.3525, 47.6242],
+           [-122.3525, 47.6197],
+           [-122.3500, 47.6186]
+          ]
         ]
       }
     }

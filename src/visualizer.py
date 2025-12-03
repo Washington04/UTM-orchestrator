@@ -107,8 +107,8 @@ def add_city_limits_layer(map_obj):
         boundary,
         name="Seattle City Limits",
         style_function=lambda feature: {
-            "color": "#0000ff",   
-            "weight": 2,          
+            "color": "#f22424",   
+            "weight": 1,         
         },
     ).add_to(map_obj)
 
@@ -174,6 +174,19 @@ def add_obstacles_layer(m: folium.Map) -> None:
 
     group = folium.FeatureGroup(name="Obstacles", show=True)
 
+    # ---- 1) Add buffered polygons (true 30m buffers) ----
+    folium.GeoJson(
+        gdf,
+        name="Obstacle Buffers",
+        style_function=lambda feature: {
+            "color": "red",
+            "weight": 2,
+            "fill": True,
+            "fillOpacity": 0.6,
+            "fillColor":"red",
+        },
+    ).add_to(group)
+
     for _, row in gdf.iterrows():
         lat = row.get("lat")
         lon = row.get("lon")
@@ -192,9 +205,9 @@ def add_obstacles_layer(m: folium.Map) -> None:
         folium.CircleMarker(
             location=[lat, lon],
             radius=4,
-            color="yellow",
+            color="red",
             fill=True,
-            fill_color="yellow",
+            fill_color="red",
             tooltip=tooltip,
         ).add_to(group)
 
@@ -205,9 +218,33 @@ def add_obstacles_layer(m: folium.Map) -> None:
 
 def add_airports_layer(map_obj, geojson_path, layer_name="Airports"):
     gdf = gpd.read_file(geojson_path)
+    if gdf.crs is None:
+        # Airports file should be in WGS84 lat/lon
+        gdf = gdf.set_crs(epsg=4326)
 
     group = folium.FeatureGroup(name=layer_name, show=True)
 
+    # ---- 1) Build buffered polygons around each airport (in meters) ----
+    AIRPORT_BUFFER_M = 100  # meters
+
+    # Work on a copy so we can safely mutate geometry
+    gdf_buf = gdf.to_crs(epsg=3857).copy()  # project to meters
+    gdf_buf["geometry"] = gdf_buf.geometry.buffer(AIRPORT_BUFFER_M)
+    gdf_buf = gdf_buf.to_crs(epsg=4326)     # back to lat/lon
+
+    folium.GeoJson(
+        gdf_buf,
+        name=f"{layer_name} Buffer",
+        style_function=lambda feature: {
+            "color": "orange",
+            "weight": 2,
+            "fill": True,
+            "fillOpacity": 0.6,
+            "fillColor":"red", 
+        },
+    ).add_to(group)
+
+    # ---- 2) Add point markers at airport locations (for labels/visibility) ----
     for _, row in gdf.iterrows():
         geom = row.geometry
         if geom is None or geom.geom_type != "Point":
@@ -225,12 +262,14 @@ def add_airports_layer(map_obj, geojson_path, layer_name="Airports"):
 
         folium.CircleMarker(
             location=[lat, lon],
-            radius=5,
+            radius=5,          # pixels, just for visibility
+            color="red",
             popup=label,
             tooltip=label,
         ).add_to(group)
 
     group.add_to(map_obj)
+
 
 
 
@@ -319,14 +358,16 @@ def add_secondary_constraints_layer(map_obj, geojson_path):
     folium.GeoJson(
         gdf,
         style_function=lambda feature: {
-            "color": "#ffcc00",  # yellow-ish, stands out on satellite
-            "weight": 3,
-            "fill": False,
+            "color":"white",  
+            "weight": 2,
+            "fill": True,
+            "fillOpacity":0.6,
+            "fillColor":"red",
         },
         highlight_function=lambda feature: {
             "weight": 4,
             "fill": True,
-            "fillOpacity": 0.2,
+            "fillOpacity": 0.6,
         },
         tooltip=folium.GeoJsonTooltip(
             fields=tooltip_fields,
@@ -365,6 +406,8 @@ def build_map(flights: Dict) -> folium.Map:
         name="Satellite",
         overlay=False,
         control=True,
+        opacity=0.6,   
+
     ).add_to(m)
 
 
@@ -382,7 +425,7 @@ def build_map(flights: Dict) -> folium.Map:
         geojson_path=CLASS_AIRSPACE_FILE,
         layer_name="Class Airspace",
         weight=2,
-        color="#1f77b4",
+        color="#caf51f",
     )
 
     add_polygon_layer(
@@ -396,7 +439,7 @@ def build_map(flights: Dict) -> folium.Map:
         map_obj=m,
         geojson_path=STADIUMS_FILE,
         layer_name="Stadiums",
-        color="#9467bd",
+        color="red",
     )
 
     add_polygon_layer(

@@ -7,7 +7,7 @@ DOF_WA = ROOT / "data" / "obstacles" / "faa_dof_wa.geojson"
 SEATTLE_AOI = ROOT / "data" / "seattle_city_limits.geojson"
 OUTPUT = ROOT / "data" / "obstacles" / "faa_dof_seattle.geojson"
 
-MIN_AGL_FT = 218  # 200 ft + ~10m vertical buffer
+MIN_AGL_FT = 368  # 400 ft - ~10m vertical buffer
 
 def main():
     print(f"Loading statewide DOF: {DOF_WA}")
