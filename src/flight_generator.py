@@ -3,8 +3,8 @@
 Generate synthetic operational intents (flights) from POIs.
 
 Usage (from root):
-  python flight_generator.py --count 50
-  python flight_generator.py --count 50 --output output/flights_custom.json
+  python flight_generator.py --count 10
+  python flight_generator.py --count 10 --output output/flights_custom.json
 """
 
 import argparse

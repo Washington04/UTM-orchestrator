@@ -335,7 +335,7 @@ def add_polygon_layer(
 
 
 
-def add_secondary_constraints_layer(map_obj, geojson_path, layer_name="Secondary Constraints"):
+def add_secondary_constraints_layer(map_obj, geojson_path, layer_name="Secondary Constraints", exclude_names=None,):
     """
     Add Secondary Constraints-style layer as a Folium layer.
 
@@ -344,6 +344,10 @@ def add_secondary_constraints_layer(map_obj, geojson_path, layer_name="Secondary
     - Hover shows: name_snake, altitude, priority (if present).
     """
     gdf = gpd.read_file(geojson_path)
+
+    # Filter out stadiums by NAME if provided
+    if exclude_names:
+        gdf = gdf[~gdf["NAME"].isin(exclude_names)]
 
     # Approximate 30 m in degrees (good enough near Seattle)
     buffer_deg = 30 / 111_000  # ~0.00027 degrees
@@ -365,7 +369,7 @@ def add_secondary_constraints_layer(map_obj, geojson_path, layer_name="Secondary
             "color": "white",
             "weight": 2,
             "fill": True,
-            "fillOpacity": 0.6,
+            "fillOpacity": 0.2,
             "fillColor": "red",
         },
         highlight_function=lambda feature: {
@@ -450,7 +454,9 @@ def build_map(flights: Dict) -> folium.Map:
         map_obj=m,
         geojson_path=STADIUM_BUFFERS_FILE,
         layer_name="Stadium Buffers",
+        exclude_names=["T-Mobile Park", "Lumen Field", "Alaska Airlines Field at Husky Stadium"],   # remove only this one
     )
+
     add_secondary_constraints_layer(
         map_obj=m,
         geojson_path=STADIUMS_FILE,

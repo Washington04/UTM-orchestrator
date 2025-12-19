@@ -27,23 +27,6 @@
     {
       "type": "Feature",
       "properties": {
-        "name_snake": "elliott_bay_corridor_eastwest",
-        "altitude": 400,
-        "priority": "medium"
-      },
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
-          [-122.3600, 47.6050],
-          [-122.3400, 47.6050],
-          [-122.3200, 47.6050]
-        ]
-      }
-    },
-
-    {
-      "type": "Feature",
-      "properties": {
         "name_snake": "seattle_center_open_air_assembly",
         "altitude": 400,
         "priority": "medium"

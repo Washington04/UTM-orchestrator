@@ -5,6 +5,6 @@
 "features": [
 { "type": "Feature", "properties": { "OBJECTID": 179, "GLOBAL_ID": "F3A8285A-F03D-4785-A77D-6DE9FDC61BB0", "NAME": "T-Mobile Park", "LATITUDE": "47-35-29.29N", "LONGITUDE": "122-19-56.46W", "CITY": "Seattle", "STATE": "WA", "STATUS_CODE": "Open", "OPENING_ON": null }, "geometry": { "type": "Point", "coordinates": [ -122.332364890096002, 47.591475059787498 ] } },
 { "type": "Feature", "properties": { "OBJECTID": 95, "GLOBAL_ID": "A6F44A6F-C603-42B7-9D84-1CAC9600F859", "NAME": "Lumen Field", "LATITUDE": "47-35-42.61N", "LONGITUDE": "122-19-53.62W", "CITY": "Seattle", "STATE": "WA", "STATUS_CODE": "Open", "OPENING_ON": null }, "geometry": { "type": "Point", "coordinates": [ -122.331576001856007, 47.595175060068499 ] } },
-{ "type": "Feature", "properties": { "OBJECTID": 148, "GLOBAL_ID": "001E89FB-8863-4DAA-A124-33F86F1D4FB1", "NAME": "Alaska Airlines Field at Husky Stadium", "LATITUDE": "47-39-01.08N", "LONGITUDE": "122-18-05.61W", "CITY": "Seattle", "STATE": "WA", "STATUS_CODE": "Open", "OPENING_ON": null }, "geometry": { "type": "Point", "coordinates": [ -122.301573232273995, 47.650305622255097 ] } }
+{ "type": "Feature", "properties": { "OBJECTID": 148, "GLOBAL_ID": "001E89FB-8863-4DAA-A124-33F86F1D4FB1", "NAME": "Husky Stadium", "LATITUDE": "47-39-01.08N", "LONGITUDE": "122-18-05.61W", "CITY": "Seattle", "STATE": "WA", "STATUS_CODE": "Open", "OPENING_ON": null }, "geometry": { "type": "Point", "coordinates": [ -122.301573232273995, 47.650305622255097 ] } }
 ]
 }
