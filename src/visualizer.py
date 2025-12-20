@@ -334,8 +334,12 @@ def add_polygon_layer(
 
 
 
-
-def add_secondary_constraints_layer(map_obj, geojson_path, layer_name="Secondary Constraints", exclude_names=None,):
+def add_secondary_constraints_layer(
+    map_obj,
+    geojson_path,
+    layer_name="Secondary Constraints",
+    exclude_names=None,
+):
     """
     Add Secondary Constraints-style layer as a Folium layer.
 
@@ -345,9 +349,14 @@ def add_secondary_constraints_layer(map_obj, geojson_path, layer_name="Secondary
     """
     gdf = gpd.read_file(geojson_path)
 
-    # Filter out stadiums by NAME if provided
-    if exclude_names:
+    # Optional: filter out features by NAME (e.g. specific stadium buffers)
+    if exclude_names and "NAME" in gdf.columns:
         gdf = gdf[~gdf["NAME"].isin(exclude_names)]
+
+    # If filtering removed everything, skip this layer to avoid Folium errors
+    if gdf.empty:
+        print(f"{layer_name}: no features after filtering; skipping layer.")
+        return
 
     # Approximate 30 m in degrees (good enough near Seattle)
     buffer_deg = 30 / 111_000  # ~0.00027 degrees
@@ -361,6 +370,16 @@ def add_secondary_constraints_layer(map_obj, geojson_path, layer_name="Secondary
     desired_fields = ["name_snake", "altitude", "priority"]
     tooltip_fields = [c for c in desired_fields if c in gdf.columns]
 
+    # Only create a tooltip if there are valid fields
+    if tooltip_fields:
+        tooltip = folium.GeoJsonTooltip(
+            fields=tooltip_fields,
+            aliases=[f"{c}:" for c in tooltip_fields],
+            sticky=False,
+        )
+    else:
+        tooltip = None
+
     group = folium.FeatureGroup(name=layer_name, show=True)
 
     folium.GeoJson(
@@ -369,7 +388,7 @@ def add_secondary_constraints_layer(map_obj, geojson_path, layer_name="Secondary
             "color": "white",
             "weight": 2,
             "fill": True,
-            "fillOpacity": 0.2,
+            "fillOpacity": 0.6,
             "fillColor": "red",
         },
         highlight_function=lambda feature: {
@@ -377,11 +396,7 @@ def add_secondary_constraints_layer(map_obj, geojson_path, layer_name="Secondary
             "fill": True,
             "fillOpacity": 0.6,
         },
-        tooltip=folium.GeoJsonTooltip(
-            fields=tooltip_fields,
-            aliases=[f"{c}:" for c in tooltip_fields],
-            sticky=False,
-        ),
+        tooltip=tooltip,
     ).add_to(group)
 
     group.add_to(map_obj)
@@ -454,7 +469,7 @@ def build_map(flights: Dict) -> folium.Map:
         map_obj=m,
         geojson_path=STADIUM_BUFFERS_FILE,
         layer_name="Stadium Buffers",
-        exclude_names=["T-Mobile Park", "Lumen Field", "Alaska Airlines Field at Husky Stadium"],   # remove only this one
+        exclude_names=["T-Mobile Park", "Lumen Field", "Husky Stadium"],   # to remove buffers
     )
 
     add_secondary_constraints_layer(
