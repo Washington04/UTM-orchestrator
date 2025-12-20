@@ -1,0 +1,21 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "Queen Anne AOI" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-122.3638888889, 47.6275],
+            [-122.3638888889, 47.6441666667],
+            [-122.35, 47.6441666667],
+            [-122.35, 47.6275],
+            [-122.3638888889, 47.6275]
+          ]
+        ]
+      }
+    }
+  ]
+}

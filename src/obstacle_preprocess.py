@@ -4,8 +4,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 DOF_WA = ROOT / "data" / "obstacles" / "faa_dof_wa.geojson"
-SEATTLE_AOI = ROOT / "data" / "seattle_city_limits.geojson"
-OUTPUT = ROOT / "data" / "obstacles" / "faa_dof_seattle.geojson"
+AOI_FILE = ROOT / "data" / "airspace" / "processed" / "queen_anne_aoi.geojson"
+OUTPUT = ROOT / "data" / "obstacles" / "faa_dof_queen_anne.geojson"
 
 MIN_AGL_FT = 368  # 400 ft - ~10m vertical buffer
 
@@ -20,8 +20,8 @@ def main():
         dof.set_crs(epsg=4326, inplace=True)
         print(f"Set DOF CRS to: {dof.crs}")
 
-    print(f"Loading Seattle AOI: {SEATTLE_AOI}")
-    seattle = gpd.read_file(SEATTLE_AOI)
+    print(f"Loading Seattle AOI: {AOI_FILE}")
+    seattle = gpd.read_file(AOI_FILE)
     if seattle.crs is None:
         seattle.set_crs(epsg=4326, inplace=True)
     seattle = seattle.to_crs(dof.crs)
