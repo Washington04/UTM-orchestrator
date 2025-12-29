@@ -8,10 +8,13 @@ import geopandas as gpd
 import numpy as np
 from shapely.geometry import Point
 import folium
+import heapq
+import math
 
 # --------------------
 # Paths / CRS
 # --------------------
+
 ROOT = Path(__file__).resolve().parent.parent
 
 AOI_FILE = ROOT / "data" / "airspace" / "processed" / "queen_anne_aoi.geojson"
@@ -35,6 +38,7 @@ Node = Tuple[int, int]  # (r, c)
 # --------------------
 # Loaders
 # --------------------
+
 def load_aoi_m() -> gpd.GeoSeries:
     aoi = gpd.read_file(AOI_FILE)
     if aoi.crs is None:
@@ -54,6 +58,7 @@ def load_obstacles_m() -> gpd.GeoDataFrame:
 # --------------------
 # Graph build
 # --------------------
+
 def build_nodes(aoi_geom, spacing_m: int) -> gpd.GeoDataFrame:
     minx, miny, maxx, maxy = aoi_geom.bounds
     xs = np.arange(minx, maxx + spacing_m, spacing_m)
@@ -101,6 +106,7 @@ def neighbors_8(n: Node, valid: Set[Node]):
 # --------------------
 # BFS
 # --------------------
+
 def bfs(start: Node, goal: Node, valid: Set[Node]) -> Optional[List[Node]]:
     if start not in valid or goal not in valid:
         return None
@@ -127,10 +133,63 @@ def bfs(start: Node, goal: Node, valid: Set[Node]) -> Optional[List[Node]]:
         cur = came[cur]
     return list(reversed(path))
 
+# --------------------
+# A*
+# --------------------
+
+def astar(start: Node, goal: Node, valid: Set[Node]) -> Optional[List[Node]]:
+    """
+    A* on an 8-connected grid where straight moves cost 1 and diagonal moves cost sqrt(2).
+    Uses Euclidean distance in grid space as the heuristic.
+    """
+    if start not in valid or goal not in valid:
+        return None
+
+    def move_cost(a: Node, b: Node) -> float:
+        dr = abs(a[0] - b[0])
+        dc = abs(a[1] - b[1])
+        # 8-neighbor implies (dr,dc) is one of: (1,0), (0,1), (1,1)
+        return math.sqrt(2) if (dr == 1 and dc == 1) else 1.0
+
+    def heuristic(n: Node) -> float:
+        # Euclidean distance in grid coordinates (admissible with the costs above)
+        return math.hypot(goal[0] - n[0], goal[1] - n[1])
+
+    open_heap: List[Tuple[float, float, Node]] = []
+    heapq.heappush(open_heap, (heuristic(start), 0.0, start))
+
+    came: Dict[Node, Optional[Node]] = {start: None}
+    g_score: Dict[Node, float] = {start: 0.0}
+
+    while open_heap:
+        f, g, cur = heapq.heappop(open_heap)
+
+        if cur == goal:
+            # reconstruct
+            path: List[Node] = []
+            n: Optional[Node] = goal
+            while n is not None:
+                path.append(n)
+                n = came[n]
+            return list(reversed(path))
+
+        # If we popped a stale (worse) entry, skip it
+        if g > g_score.get(cur, float("inf")):
+            continue
+
+        for nb in neighbors_8(cur, valid):
+            tentative_g = g_score[cur] + move_cost(cur, nb)
+            if tentative_g < g_score.get(nb, float("inf")):
+                came[nb] = cur
+                g_score[nb] = tentative_g
+                heapq.heappush(open_heap, (tentative_g + heuristic(nb), tentative_g, nb))
+
+    return None
 
 # --------------------
 # Snapping
 # --------------------
+
 def snap_latlon_to_node(lat: float, lon: float, nodes_xy: Dict[Node, Point], valid: Set[Node]) -> Node:
     p = gpd.GeoDataFrame(
         geometry=[Point(lon, lat)], crs=CRS_WGS84
@@ -158,6 +217,7 @@ def to_latlon(points_m: List[Point]) -> List[Tuple[float, float]]:
 # --------------------
 # Visualization
 # --------------------
+
 def visualize(
     aoi_wgs84,
     obstacles_wgs84,
@@ -168,6 +228,26 @@ def visualize(
 ):
     centroid = aoi_wgs84.geometry.iloc[0].centroid
     m = folium.Map(location=[centroid.y, centroid.x], zoom_start=15, tiles="CartoDB positron")
+
+    # Google Satellite
+    folium.TileLayer(
+    tiles="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+    attr="Google",
+    name="Google Satellite",
+    overlay=False,
+    control=True,
+    show=False,
+    ).add_to(m)
+
+    # Optional: Hybrid label
+    folium.TileLayer(
+    tiles="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+    attr="Google",
+    name="Google Hybrid (labels)",
+    overlay=False,
+    control=True,
+    show=False,
+    ).add_to(m)
 
     # AOI
     aoi_coords = list(aoi_wgs84.geometry.iloc[0].exterior.coords)
@@ -267,6 +347,7 @@ def visualize(
 # --------------------
 # Main (example run)
 # --------------------
+
 if __name__ == "__main__":
     aoi_m = load_aoi_m().iloc[0]
     obs_m = load_obstacles_m()
@@ -280,13 +361,14 @@ if __name__ == "__main__":
     }
 
     # Example start/goal inside QA (you can replace with POIs later)
-    start_ll = (47.6335, -122.3615)
-    goal_ll  = (47.6405, -122.3525)
+    start_ll = (47.6336, -122.3572)
+    goal_ll  = (47.6311, -122.3503)
 
     start = snap_latlon_to_node(*start_ll, nodes_xy, valid)
     goal  = snap_latlon_to_node(*goal_ll,  nodes_xy, valid)
 
-    path = bfs(start, goal, valid)
+    print("ROUTER = A*")
+    path = astar(start, goal, valid)
 
     aoi_wgs = gpd.read_file(AOI_FILE)
     if aoi_wgs.crs is None:
