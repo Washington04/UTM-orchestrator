@@ -2,7 +2,7 @@
 
 _A lightweight, standards-aligned UAS Traffic Management (UTM) simulation environment_
 
-Note: UTM Orchestrator is a learning project to explore UTM technical challenges, geospatial approaches, and airspace interoperability. Contributions, suggestions, and discussions are welcome. Please add them to UTM-orchestrator/community_notes. 
+UTM Orchestrator is a learning project to explore UTM technical challenges, geospatial approaches, and airspace interoperability. Contributions, suggestions, and discussions are welcome. Please add them to UTM-orchestrator/community_notes. 
 
 ***
 
@@ -12,10 +12,10 @@ Note: UTM Orchestrator is a learning project to explore UTM technical challenges
 
 The system generates:
 - Geographical operating areas
-- Operational intents (merchant → customer → hub)
-- Static & dynamic constraints
-- POIs and route generation
-- Basic strategic deconfliction workflows
+- Flight planning (bfs and A* in neighborhood_graph)
+- Operational intents (flight_generator)
+- Static & dynamic constraints (Obstacles, Stadium TFRs, Open-air assemblies, TFRs, other constraints)
+- Strategic deconfliction workflows
 
 The goal is to provide a safe environment to explore how UTM services, implemented in accordance with industry consensus standards, enable safe, scalable, and transparent shared airspace operations.
 
