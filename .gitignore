@@ -30,6 +30,12 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# Auth/tokens/secrets
+*.token
+*.secret
+.secrets/
+*.log
+
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
@@ -219,3 +225,5 @@ data/airspace/raw/FAA_UAS_FacilityMap_Data.geojson
 debug_sectional.html
 debug_sectional.py
 temp_sectional.vrt
+.notam_runs/
+outputs/notam_constraints/

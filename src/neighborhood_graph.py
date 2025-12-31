@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 AOI_FILE = ROOT / "data" / "airspace" / "processed" / "queen_anne_aoi.geojson"
 OBSTACLE_FILE = ROOT / "data" / "obstacles" / "faa_dof_queen_anne.geojson"
-OUT_HTML = ROOT / "outputs" / "queen_anne_bfs.html"
+OUT_HTML = ROOT / "output" / "queen_anne_bfs.html"
 
 CRS_WGS84 = "EPSG:4326"
 CRS_METERS = "EPSG:26910"  # Seattle UTM
