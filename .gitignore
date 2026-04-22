@@ -227,3 +227,6 @@ debug_sectional.py
 temp_sectional.vrt
 .notam_runs/
 outputs/notam_constraints/
+
+# Claude Code local settings
+.claude/settings.local.json
