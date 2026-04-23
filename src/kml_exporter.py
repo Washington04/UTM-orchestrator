@@ -28,19 +28,25 @@ ET.register_namespace("",   KML_NS)
 ET.register_namespace("gx", GX_NS)
 
 # Shared style IDs — defined once at <Document> level
-_SID_VOL   = "vol_style"
-_SID_ROUTE = "route_style"
-_SID_ORIG  = "origin_style"
-_SID_DEST  = "dest_style"
-_SID_WP    = "wp_style"
+_SID_VOL        = "vol_style"
+_SID_CYL_ORIG   = "cyl_orig_style"
+_SID_CYL_DEST   = "cyl_dest_style"
+_SID_ROUTE      = "route_style"
+_SID_ORIG       = "origin_style"
+_SID_DEST       = "dest_style"
+_SID_WP         = "wp_style"
 
 # KML colors: AABBGGRR
-_VOL_LINE  = "ff00c8ff"
-_VOL_FILL  = "4f00c8ff"
-_ROUTE_CLR = "ff44ff00"
-_ORIG_CLR  = "ff00cc00"
-_DEST_CLR  = "ff0000ff"
-_WP_CLR    = "ffffffff"
+_VOL_LINE       = "ff00c8ff"
+_VOL_FILL       = "4f00c8ff"
+_CYL_ORIG_LINE  = "ff00c8ff"
+_CYL_ORIG_FILL  = "4f00c8ff"
+_CYL_DEST_LINE  = "ff00c8ff"
+_CYL_DEST_FILL  = "4f00c8ff"
+_ROUTE_CLR      = "ff44ff00"
+_ORIG_CLR       = "ff00cc00"
+_DEST_CLR       = "ff0000ff"
+_WP_CLR         = "ffffffff"
 
 
 # ── XML helpers ───────────────────────────────────────────────────────────────
@@ -77,7 +83,9 @@ def _add_styles(doc: ET.Element) -> None:
             icon = ET.SubElement(n, _t("Icon"))
             ET.SubElement(icon, _t("href")).text = href
 
-    s = style(_SID_VOL);   ls(s, _VOL_LINE); ps(s, _VOL_FILL)
+    s = style(_SID_VOL);       ls(s, _VOL_LINE);      ps(s, _VOL_FILL)
+    s = style(_SID_CYL_ORIG);  ls(s, _CYL_ORIG_LINE); ps(s, _CYL_ORIG_FILL)
+    s = style(_SID_CYL_DEST);  ls(s, _CYL_DEST_LINE); ps(s, _CYL_DEST_FILL)
     s = style(_SID_ROUTE);  ls(s, _ROUTE_CLR, "3")
     s = style(_SID_ORIG);   ic(s, _ORIG_CLR,
         href="http://maps.google.com/mapfiles/kml/paddle/grn-circle.png")
@@ -111,27 +119,47 @@ def _volumes_folder(doc: ET.Element, features: List[Dict]) -> None:
     _sub(folder, "name", "4D Volumes")
 
     for feat in features:
-        p      = feat["properties"]
-        seg    = p["segment_index"]
-        min_m  = p["min_alt_ft"] * FT_TO_M
-        max_m  = p["max_alt_ft"] * FT_TO_M
-        tb     = _kml_time(p["start_time"])
-        te     = _kml_time(p["end_time"])
-        ring   = feat["geometry"]["coordinates"][0]
+        p         = feat["properties"]
+        vtype     = p.get("volume_type", "segment")
+        min_m     = p["min_alt_ft"] * FT_TO_M
+        max_m     = p["max_alt_ft"] * FT_TO_M
+        tb        = _kml_time(p["start_time"])
+        te        = _kml_time(p["end_time"])
+        ring      = feat["geometry"]["coordinates"][0]
 
-        desc = (
-            f"Segment: {seg}\n"
-            f"Altitude: {p['min_alt_ft']:.0f} - {p['max_alt_ft']:.0f} ft AGL\n"
-            f"Start:    {tb}\nEnd:      {te}\nDuration: {p['duration_s']:.1f} s"
-        )
+        if vtype == "origin":
+            folder_name = "Origin Cylinder"
+            sid = _SID_CYL_ORIG
+            desc = (
+                f"Origin takeoff envelope\n"
+                f"Altitude: {p['min_alt_ft']:.0f} - {p['max_alt_ft']:.0f} ft AGL\n"
+                f"Start: {tb}\nEnd: {te}"
+            )
+        elif vtype == "destination":
+            folder_name = "Destination Cylinder"
+            sid = _SID_CYL_DEST
+            desc = (
+                f"Destination landing envelope\n"
+                f"Altitude: {p['min_alt_ft']:.0f} - {p['max_alt_ft']:.0f} ft AGL\n"
+                f"Start: {tb}\nEnd: {te}"
+            )
+        else:
+            seg = p["segment_index"]
+            folder_name = f"Segment {seg}"
+            sid = _SID_VOL
+            desc = (
+                f"Segment: {seg}\n"
+                f"Altitude: {p['min_alt_ft']:.0f} - {p['max_alt_ft']:.0f} ft AGL\n"
+                f"Start:    {tb}\nEnd:      {te}\nDuration: {p['duration_s']:.1f} s"
+            )
 
         sf = _sub(folder, "Folder")
-        _sub(sf, "name", f"Segment {seg}")
+        _sub(sf, "name", folder_name)
 
         _polygon_pm(sf, "ceiling", [(lon, lat, max_m) for lon, lat in ring],
-                    _SID_VOL, desc)
+                    sid, desc)
         _polygon_pm(sf, "floor",   [(lon, lat, min_m) for lon, lat in ring],
-                    _SID_VOL, desc)
+                    sid, desc)
 
         for i in range(len(ring) - 1):
             lon0, lat0 = ring[i]
@@ -140,7 +168,7 @@ def _volumes_folder(doc: ET.Element, features: List[Dict]) -> None:
                 (lon0, lat0, min_m), (lon1, lat1, min_m),
                 (lon1, lat1, max_m), (lon0, lat0, max_m),
                 (lon0, lat0, min_m),
-            ], _SID_VOL, "")
+            ], sid, "")
 
 
 def _route_folder(doc: ET.Element, waypoints: List[Dict]) -> None:
@@ -225,7 +253,8 @@ if __name__ == "__main__":
                         help="Volumes GeoJSON from volumizer.py")
     parser.add_argument("--waypoints", metavar="PATH",
                         help="Waypoints JSON from waypoint_engine.py (adds route layer)")
-    parser.add_argument("--output",    default="output/flight_volumes.kml", metavar="PATH")
+    parser.add_argument("--output",    default=None, metavar="PATH",
+                        help="Output KML path (default: output/flight_volumes_YYYYMMDD_HHMMSS.kml)")
     args = parser.parse_args()
 
     vol_path = Path(args.volumes)
@@ -241,7 +270,11 @@ if __name__ == "__main__":
         waypoints = _load_waypoints(wp_path)
 
     xml_str  = build_kml(features, waypoints)
-    out_path = ROOT / args.output
+    if args.output:
+        out_path = ROOT / args.output
+    else:
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        out_path = ROOT / "output" / f"flight_volumes_{ts}.kml"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(xml_str)

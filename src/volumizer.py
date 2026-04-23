@@ -22,7 +22,7 @@ from typing import Dict, List, Optional, Tuple
 
 import folium
 import geopandas as gpd
-from shapely.geometry import LineString, mapping, shape
+from shapely.geometry import LineString, Point, mapping, shape
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = ROOT / "output"
@@ -39,12 +39,13 @@ OBSTACLE_FILE = ROOT / "data" / "obstacles" / "faa_dof_queen_anne.geojson"
 class Volume4D:
     def __init__(
         self,
-        segment_index: int,
-        polygon,          # Shapely Polygon in WGS84
+        segment_index,        # int for segments, None for origin/dest cylinders
+        polygon,              # Shapely Polygon in WGS84
         min_alt_ft: float,
         max_alt_ft: float,
         start_time: datetime,
         end_time: datetime,
+        volume_type: str = "segment",   # "segment" | "origin" | "destination"
     ):
         self.segment_index = segment_index
         self.polygon = polygon
@@ -52,6 +53,7 @@ class Volume4D:
         self.max_alt_ft = max_alt_ft
         self.start_time = start_time
         self.end_time = end_time
+        self.volume_type = volume_type
 
     @property
     def duration_s(self) -> float:
@@ -68,6 +70,7 @@ class Volume4D:
             "type": "Feature",
             "geometry": mapping(self.polygon),
             "properties": {
+                "volume_type": self.volume_type,
                 "segment_index": self.segment_index,
                 "min_alt_ft": round(self.min_alt_ft, 1),
                 "max_alt_ft": round(self.max_alt_ft, 1),
@@ -79,6 +82,14 @@ class Volume4D:
 
 
 # ── Core builder ─────────────────────────────────────────────────────────────
+
+def _make_cylinder_wgs(lat: float, lon: float, radius_m: float):
+    """Return a circular Shapely Polygon (WGS84) with UTM-accurate radius."""
+    gdf = gpd.GeoDataFrame(geometry=[Point(lon, lat)], crs=CRS_WGS84)
+    gdf_utm = gdf.to_crs(CRS_METERS)
+    gdf_utm["geometry"] = gdf_utm.geometry.buffer(radius_m, resolution=8)
+    return gdf_utm.to_crs(CRS_WGS84).geometry.iloc[0]
+
 
 def _extend_line(line, extend_m: float):
     """Extend a UTM LineString by extend_m past each endpoint."""
@@ -100,22 +111,36 @@ def build_volumes(
     buffer_m: float = 5.0,
     v_margin_ft: float = 20.0,
     time_buffer_s: float = 0.25,
+    cylinder_radius_m: float = 5.0,
 ) -> List[Volume4D]:
     """
-    Create one Volume4D per consecutive waypoint segment.
+    Create 4D volumes for an origin-to-destination flight path.
 
-    Args:
-        waypoints:   Ordered list of {lat, lon, alt_agl, time, ...} dicts.
-        buffer_m:    Horizontal corridor half-width in meters (UTM-accurate).
-        v_margin_ft: Vertical margin added above and below alt_agl (feet).
+    Returns a list ordered as:
+      [origin_cylinder, segment_0, ..., segment_N-2, destination_cylinder]
 
-    Returns:
-        List of Volume4D objects, one per segment (len = len(waypoints) - 1).
+    Origin and destination cylinders span 0 ft AGL to cruise altitude with a
+    5 m radius, representing the takeoff and landing envelopes. Segment volumes
+    are UTM-buffered corridor rectangles at cruise altitude ± v_margin_ft.
     """
     if len(waypoints) < 2:
         raise ValueError("Need at least 2 waypoints to build volumes.")
 
     volumes: List[Volume4D] = []
+
+    # ── Origin cylinder ───────────────────────────────────────────────────────
+    wp_orig = waypoints[0]
+    t_orig_raw = _parse_time(wp_orig["time"])
+    t_next_raw = _parse_time(waypoints[1]["time"])
+    volumes.append(Volume4D(
+        segment_index=None,
+        polygon=_make_cylinder_wgs(wp_orig["lat"], wp_orig["lon"], cylinder_radius_m),
+        min_alt_ft=0.0,
+        max_alt_ft=wp_orig["alt_agl"],
+        start_time=t_orig_raw - timedelta(seconds=time_buffer_s),
+        end_time=t_next_raw + timedelta(seconds=time_buffer_s),
+        volume_type="origin",
+    ))
 
     for i in range(len(waypoints) - 1):
         wp_a = waypoints[i]
@@ -160,19 +185,34 @@ def build_volumes(
             max_alt_ft=max_alt,
             start_time=t_start,
             end_time=t_end,
+            volume_type="segment",
         ))
+
+    # ── Destination cylinder ──────────────────────────────────────────────────
+    wp_dest = waypoints[-1]
+    t_prev_raw = _parse_time(waypoints[-2]["time"])
+    t_dest_raw = _parse_time(wp_dest["time"])
+    volumes.append(Volume4D(
+        segment_index=None,
+        polygon=_make_cylinder_wgs(wp_dest["lat"], wp_dest["lon"], cylinder_radius_m),
+        min_alt_ft=0.0,
+        max_alt_ft=wp_dest["alt_agl"],
+        start_time=t_prev_raw - timedelta(seconds=time_buffer_s),
+        end_time=t_dest_raw + timedelta(seconds=time_buffer_s),
+        volume_type="destination",
+    ))
 
     return volumes
 
 
-def detect_conflicts(volumes: List[Volume4D]) -> List[Tuple[int, int]]:
-    """Return list of (i, j) index pairs where volumes overlap in 4D."""
-    conflicts = []
+def detect_overlaps(volumes: List[Volume4D]) -> List[Tuple[int, int]]:
+    """Return (i, j) pairs where same-flight volumes share 4D space (expected at boundaries)."""
+    overlaps = []
     for i in range(len(volumes)):
         for j in range(i + 1, len(volumes)):
             if volumes[i].overlaps(volumes[j]):
-                conflicts.append((i, j))
-    return conflicts
+                overlaps.append((i, j))
+    return overlaps
 
 
 # ── I/O ───────────────────────────────────────────────────────────────────────
@@ -255,22 +295,34 @@ def visualize_volumes(
 
     # Volume footprints
     vol_grp = folium.FeatureGroup(name="Volume footprints", show=True)
+    _style = {
+        "origin":      ("#00aaff", "#00aaff"),
+        "destination": ("#00aaff", "#00aaff"),
+        "segment":     ("#00aaff", "#00aaff"),
+    }
     for v in volumes:
         coords = [[lat, lon] for lon, lat in v.polygon.exterior.coords]
+        if v.volume_type == "origin":
+            label = "Origin cylinder"
+        elif v.volume_type == "destination":
+            label = "Destination cylinder"
+        else:
+            label = f"Segment {v.segment_index}"
         tooltip_html = (
-            f"<b>Segment {v.segment_index}</b><br>"
+            f"<b>{label}</b><br>"
             f"Alt: {v.min_alt_ft:.0f} – {v.max_alt_ft:.0f} ft AGL<br>"
             f"Start: {v.start_time.strftime('%H:%M:%S')} UTC<br>"
             f"End:&nbsp;&nbsp; {v.end_time.strftime('%H:%M:%S')} UTC<br>"
             f"Duration: {v.duration_s:.1f} s"
         )
+        color, fill_color = _style.get(v.volume_type, ("#00aaff", "#00aaff"))
         folium.Polygon(
             locations=coords,
-            color="#00aaff",
+            color=color,
             weight=1,
             fill=True,
-            fill_color="#00aaff",
-            fill_opacity=0.25,
+            fill_color=fill_color,
+            fill_opacity=0.35,
             tooltip=folium.Tooltip(tooltip_html, sticky=False),
         ).add_to(vol_grp)
     vol_grp.add_to(m)
@@ -397,8 +449,8 @@ if __name__ == "__main__":
         metadata["v_margin_ft"] = args.v_margin
     visualize_volumes(volumes, waypoints, metadata, map_path)
 
-    conflicts = detect_conflicts(volumes)
+    overlaps = detect_overlaps(volumes)
 
-    print(f"Segments: {len(volumes)}")
-    print(f"Conflicts: {len(conflicts)}" + (f" — segments {conflicts}" if conflicts else " (none)"))
+    print(f"Volumes:  {len(volumes)}")
+    print(f"Overlaps: {len(overlaps)}" + (f" — indices {overlaps}" if overlaps else " (none)"))
     print(f"Map:      {map_path.as_uri()}")
