@@ -31,6 +31,7 @@ ET.register_namespace("gx", GX_NS)
 _SID_VOL        = "vol_style"
 _SID_CYL_ORIG   = "cyl_orig_style"
 _SID_CYL_DEST   = "cyl_dest_style"
+_SID_CONFLICT   = "conflict_style"
 _SID_ROUTE      = "route_style"
 _SID_ORIG       = "origin_style"
 _SID_DEST       = "dest_style"
@@ -43,6 +44,8 @@ _CYL_ORIG_LINE  = "ff00c8ff"
 _CYL_ORIG_FILL  = "4f00c8ff"
 _CYL_DEST_LINE  = "ff00c8ff"
 _CYL_DEST_FILL  = "4f00c8ff"
+_CONFLICT_LINE  = "ff0000ff"   # red
+_CONFLICT_FILL  = "660000ff"   # semi-transparent red
 _ROUTE_CLR      = "ff44ff00"
 _ORIG_CLR       = "ff00cc00"
 _DEST_CLR       = "ff0000ff"
@@ -83,9 +86,10 @@ def _add_styles(doc: ET.Element) -> None:
             icon = ET.SubElement(n, _t("Icon"))
             ET.SubElement(icon, _t("href")).text = href
 
-    s = style(_SID_VOL);       ls(s, _VOL_LINE);      ps(s, _VOL_FILL)
-    s = style(_SID_CYL_ORIG);  ls(s, _CYL_ORIG_LINE); ps(s, _CYL_ORIG_FILL)
-    s = style(_SID_CYL_DEST);  ls(s, _CYL_DEST_LINE); ps(s, _CYL_DEST_FILL)
+    s = style(_SID_VOL);       ls(s, _VOL_LINE);       ps(s, _VOL_FILL)
+    s = style(_SID_CYL_ORIG);  ls(s, _CYL_ORIG_LINE);  ps(s, _CYL_ORIG_FILL)
+    s = style(_SID_CYL_DEST);  ls(s, _CYL_DEST_LINE);  ps(s, _CYL_DEST_FILL)
+    s = style(_SID_CONFLICT);  ls(s, _CONFLICT_LINE);   ps(s, _CONFLICT_FILL)
     s = style(_SID_ROUTE);  ls(s, _ROUTE_CLR, "3")
     s = style(_SID_ORIG);   ic(s, _ORIG_CLR,
         href="http://maps.google.com/mapfiles/kml/paddle/grn-circle.png")
@@ -114,11 +118,12 @@ def _polygon_pm(parent: ET.Element, name: str, coords_3d,
 
 # ── Folders ───────────────────────────────────────────────────────────────────
 
-def _volumes_folder(doc: ET.Element, features: List[Dict]) -> None:
+def _volumes_folder(doc: ET.Element, features: List[Dict],
+                    conflicting_indices: set = None) -> None:
     folder = _sub(doc, "Folder")
     _sub(folder, "name", "4D Volumes")
 
-    for feat in features:
+    for feat_idx, feat in enumerate(features):
         p         = feat["properties"]
         vtype     = p.get("volume_type", "segment")
         min_m     = p["min_alt_ft"] * FT_TO_M
@@ -127,9 +132,11 @@ def _volumes_folder(doc: ET.Element, features: List[Dict]) -> None:
         te        = _kml_time(p["end_time"])
         ring      = feat["geometry"]["coordinates"][0]
 
+        is_conflict = conflicting_indices and feat_idx in conflicting_indices
+
         if vtype == "origin":
             folder_name = "Origin Cylinder"
-            sid = _SID_CYL_ORIG
+            sid = _SID_CONFLICT if is_conflict else _SID_CYL_ORIG
             desc = (
                 f"Origin takeoff envelope\n"
                 f"Altitude: {p['min_alt_ft']:.0f} - {p['max_alt_ft']:.0f} ft AGL\n"
@@ -137,7 +144,7 @@ def _volumes_folder(doc: ET.Element, features: List[Dict]) -> None:
             )
         elif vtype == "destination":
             folder_name = "Destination Cylinder"
-            sid = _SID_CYL_DEST
+            sid = _SID_CONFLICT if is_conflict else _SID_CYL_DEST
             desc = (
                 f"Destination landing envelope\n"
                 f"Altitude: {p['min_alt_ft']:.0f} - {p['max_alt_ft']:.0f} ft AGL\n"
@@ -146,7 +153,7 @@ def _volumes_folder(doc: ET.Element, features: List[Dict]) -> None:
         else:
             seg = p["segment_index"]
             folder_name = f"Segment {seg}"
-            sid = _SID_VOL
+            sid = _SID_CONFLICT if is_conflict else _SID_VOL
             desc = (
                 f"Segment: {seg}\n"
                 f"Altitude: {p['min_alt_ft']:.0f} - {p['max_alt_ft']:.0f} ft AGL\n"
@@ -176,8 +183,10 @@ def _route_folder(doc: ET.Element, waypoints: List[Dict]) -> None:
     _sub(folder, "name", "Route")
     alt_m = waypoints[0]["alt_agl"] * FT_TO_M
 
-    # Route polyline
-    pm = _sub(folder, "Placemark")
+    # Route polyline subfolder
+    line_folder = _sub(folder, "Folder")
+    _sub(line_folder, "name", "Route Line")
+    pm = _sub(line_folder, "Placemark")
     _sub(pm, "name", "A* Route")
     _sub(pm, "styleUrl", f"#{_SID_ROUTE}")
     ls = _sub(pm, "LineString")
@@ -185,7 +194,9 @@ def _route_folder(doc: ET.Element, waypoints: List[Dict]) -> None:
     _sub(ls, "coordinates",
          " ".join(f"{w['lon']},{w['lat']},{alt_m:.3f}" for w in waypoints))
 
-    # Waypoint pins
+    # Waypoint pins subfolder
+    wp_folder = _sub(folder, "Folder")
+    _sub(wp_folder, "name", "Waypoints")
     for w in waypoints:
         step      = w["step"]
         is_origin = step == 0
@@ -193,7 +204,7 @@ def _route_folder(doc: ET.Element, waypoints: List[Dict]) -> None:
         label     = "Origin" if is_origin else "Destination" if is_dest else f"WP {step}"
         sid       = _SID_ORIG if is_origin else _SID_DEST if is_dest else _SID_WP
 
-        pm = _sub(folder, "Placemark")
+        pm = _sub(wp_folder, "Placemark")
         _sub(pm, "name", label)
         _sub(pm, "description",
              f"Step: {step}\nLat:  {w['lat']}\nLon:  {w['lon']}\n"
@@ -207,15 +218,44 @@ def _route_folder(doc: ET.Element, waypoints: List[Dict]) -> None:
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 
-def build_kml(features: List[Dict], waypoints: Optional[List[Dict]] = None) -> str:
+def build_kml(features: List[Dict], waypoints: Optional[List[Dict]] = None,
+              conflicting_indices: set = None) -> str:
     kml_el = ET.Element(_t("kml"))
     doc    = _sub(kml_el, "Document")
     _sub(doc, "name", "UTM Operational Intent")
 
-    _add_styles(doc)          # all styles at Document level
-    _volumes_folder(doc, features)
+    _add_styles(doc)
+    _volumes_folder(doc, features, conflicting_indices)
     if waypoints:
         _route_folder(doc, waypoints)
+
+    rough    = ET.tostring(kml_el, encoding="unicode")
+    reparsed = minidom.parseString(rough)
+    return reparsed.toprettyxml(indent="    ")
+
+
+def build_combined_kml(
+    flights: List[Dict],  # list of {id, features, waypoints (optional), conflicting_indices}
+) -> str:
+    """Build a single KML with one top-level Folder per flight."""
+    kml_el = ET.Element(_t("kml"))
+    doc    = _sub(kml_el, "Document")
+    _sub(doc, "name", "UTM Operational Intent — All Flights")
+
+    _add_styles(doc)
+
+    for flight in flights:
+        fid         = flight["id"]
+        features    = flight["features"]
+        waypoints   = flight.get("waypoints")
+        conflicting = flight.get("conflicting_indices", set())
+
+        flight_folder = _sub(doc, "Folder")
+        _sub(flight_folder, "name", fid)
+
+        _volumes_folder(flight_folder, features, conflicting)
+        if waypoints:
+            _route_folder(flight_folder, waypoints)
 
     rough    = ET.tostring(kml_el, encoding="unicode")
     reparsed = minidom.parseString(rough)

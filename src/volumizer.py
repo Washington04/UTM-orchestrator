@@ -55,6 +55,19 @@ class Volume4D:
         self.end_time = end_time
         self.volume_type = volume_type
 
+    @classmethod
+    def from_feature(cls, feature: Dict) -> "Volume4D":
+        p = feature["properties"]
+        return cls(
+            segment_index=p.get("segment_index"),
+            polygon=shape(feature["geometry"]),
+            min_alt_ft=p["min_alt_ft"],
+            max_alt_ft=p["max_alt_ft"],
+            start_time=_parse_time(p["start_time"]),
+            end_time=_parse_time(p["end_time"]),
+            volume_type=p.get("volume_type", "segment"),
+        )
+
     @property
     def duration_s(self) -> float:
         return (self.end_time - self.start_time).total_seconds()
