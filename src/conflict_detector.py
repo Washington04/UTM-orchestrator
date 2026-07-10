@@ -25,6 +25,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from volumizer import Volume4D
 from kml_exporter import build_kml, build_combined_kml, _load_volumes, _load_waypoints
+<<<<<<< HEAD
+=======
+from conflict_agent import build_conflict_report, interpret_conflict
+>>>>>>> b815154 (Initial repository import and approval UI update)
 
 
 def detect_conflicts(
@@ -127,12 +131,22 @@ if __name__ == "__main__":
 
     print(f"\nTotal conflicts: {len(all_conflicts)}")
 
-    # ── Export KML per flight with conflicting volumes highlighted red ─────────
-    conflict_map = conflicting_indices_by_flight(all_conflicts)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     out_dir = ROOT / "output"
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    conflict_summaries = [interpret_conflict(c) for c in all_conflicts]
+    report_text = build_conflict_report(
+        conflict_summaries,
+        generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
+    report_path = out_dir / f"conflict_report_{ts}.txt"
+    with open(report_path, "w", encoding="utf-8") as f:
+        f.write(report_text)
+    print(f"\nConflict report: {report_path.name}")
+
+    # ── Export KML per flight with conflicting volumes highlighted red ─────────
+    conflict_map = conflicting_indices_by_flight(all_conflicts)
     print("\nExporting KMLs:")
     flight_data = []
     for fid, features, vol_path in zip(flight_ids, raw_features, paths):
