@@ -76,6 +76,17 @@ UTM Orchestrator is designed with reference to the FAA, ASTM, and international 
 - Associates flights with grid cells + coordinates
 - Outputs operational intent objects (JSON)
 
+**METAR Weather Integration** (`src/weather_service.py`)
+- Fetches METAR observations from aviationweather.gov
+- Stores normalized weather output in `output/weather`
+- Adds binary hazard checks for:
+  - `lightning`
+  - `windspeed_25kts`
+  - `windgusts_25kts`
+  - `low_visibility`
+  - `low_ceiling`
+- Sets `available` to `true` only when all hazard flags are `0`, otherwise `false`
+
 **Operational Intent Pipeline** (In Development)
 - **Waypoint Engine** (`src/waypoint_engine.py`): Takes origin/destination lat/lon, generates waypoints using A* pathfinding
 - **Volumizer** (`src/volumizer.py`): Creates 4D volumes (polygon + altitude + time) around flight paths

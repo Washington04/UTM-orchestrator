@@ -47,6 +47,8 @@ class WeatherServiceTests(unittest.TestCase):
         self.assertEqual(result["stations"]["KBFI"]["altimeter"], 30.03)
         self.assertEqual(result["stations"]["KRNT"]["altimeter"], 30.04)
         self.assertEqual(result["stations"]["KBFI"]["metar"], sample[0]["rawOb"])
+        self.assertEqual(result["stations"]["KBFI"]["observation_time"], "2253Z")
+        self.assertEqual(result["stations"]["KRNT"]["observation_time"], "2253Z")
         self.assertNotIn("rawOb", result["stations"]["KBFI"])
         self.assertNotIn("rawOb", result["stations"]["KRNT"])
         self.assertEqual(result["stations"]["KBFI"]["available"], 0)

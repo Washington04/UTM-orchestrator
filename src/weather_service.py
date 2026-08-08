@@ -62,6 +62,11 @@ def _parse_metar_xml(xml_text: str) -> List[Dict[str, Any]]:
     return results
 
 
+def _extract_obstime_from_metar(metar_text: str) -> str:
+    match = re.search(r"\b\d{2}(\d{4}Z)\b", metar_text)
+    return match.group(1) if match else ''
+
+
 def _extract_wind_from_metar(metar_text: str) -> Dict[str, Any]:
     result: Dict[str, Any] = {}
     wind_match = re.search(r"\b(\d{3})(\d{2,3})(G(\d{2,3}))?KT\b", metar_text)
@@ -173,7 +178,8 @@ def fetch_metars(stations: List[str], hours_before_now: int = 2, timeout: int = 
                 if altimeter is not None:
                     entry['altimeter'] = altimeter
 
-                # parse wind/visibility/ceiling/lightning from raw METAR text
+                # extract METAR-observed time and parse wind/visibility/ceiling/lightning
+                entry['observation_time'] = _extract_obstime_from_metar(metar_text)
                 parsed = _extract_wind_from_metar(metar_text)
                 entry.update(parsed)
 
