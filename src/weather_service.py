@@ -13,8 +13,8 @@ Usage:
 """
 
 from datetime import datetime, timezone
+import re
 import requests
-import xml.etree.ElementTree as ET
 from typing import Dict, List, Any, Union
 import json
 import os
@@ -60,6 +60,40 @@ def _parse_metar_xml(xml_text: str) -> List[Dict[str, Any]]:
 
         results.append(entry)
     return results
+
+
+def _extract_wind_from_metar(metar_text: str) -> Dict[str, Any]:
+    result: Dict[str, Any] = {}
+    wind_match = re.search(r"\b(\d{3})(\d{2,3})(G(\d{2,3}))?KT\b", metar_text)
+    if wind_match:
+        result['wdir'] = int(wind_match.group(1))
+        result['wspd'] = int(wind_match.group(2))
+        if wind_match.group(4):
+            result['wgst'] = int(wind_match.group(4))
+    vis_match = re.search(r"\b(\d{1,2}(?:\.\d+|/\d+)?)SM\b", metar_text)
+    if vis_match:
+        vis_str = vis_match.group(1)
+        try:
+            if '/' in vis_str:
+                num, denom = vis_str.split('/')
+                result['visib'] = float(num) / float(denom)
+            else:
+                result['visib'] = float(vis_str)
+        except Exception:
+            pass
+    ceiling = None
+    for sky_match in re.finditer(r"\b(BKN|OVC|VV)(\d{3})\b", metar_text):
+        try:
+            height = int(sky_match.group(2)) * 100
+            if ceiling is None or height < ceiling:
+                ceiling = height
+        except Exception:
+            pass
+    if ceiling is not None:
+        result['ceiling_ft'] = ceiling
+    if 'LTG' in metar_text:
+        result['lightning'] = 1
+    return result
 
 
 def fetch_metars(stations: List[str], hours_before_now: int = 2, timeout: int = 10) -> Dict[str, Any]:
@@ -111,7 +145,8 @@ def fetch_metars(stations: List[str], hours_before_now: int = 2, timeout: int = 
         }
 
     if isinstance(data, list):
-        for entry in data:
+        for raw_entry in data:
+            entry = dict(raw_entry)
             sid = entry.get('icaoId') or entry.get('station') or entry.get('station_id')
             if sid:
                 # normalize raw METAR text into a consistent single-line field
@@ -128,20 +163,36 @@ def fetch_metars(stations: List[str], hours_before_now: int = 2, timeout: int = 
 
                 # extract altimeter in A#### form from the raw METAR if present
                 altimeter = None
-                try:
-                    import re
-                    m = re.search(r"\bA(\d{3,4})\b", metar_text)
-                    if m:
-                        digits = m.group(1)
-                        if len(digits) == 4:
-                            altimeter = float(digits[:-2] + '.' + digits[-2:])
-                        elif len(digits) == 3:
-                            altimeter = float(digits[:-2] + '.' + digits[-2:])
-                except Exception:
-                    altimeter = None
-
+                m = re.search(r"\bA(\d{3,4})\b", metar_text)
+                if m:
+                    digits = m.group(1)
+                    if len(digits) == 4:
+                        altimeter = float(digits[:-2] + '.' + digits[-2:])
+                    elif len(digits) == 3:
+                        altimeter = float(digits[:-2] + '.' + digits[-2:])
                 if altimeter is not None:
                     entry['altimeter'] = altimeter
+
+                # parse wind/visibility/ceiling/lightning from raw METAR text
+                parsed = _extract_wind_from_metar(metar_text)
+                entry.update(parsed)
+
+                entry['lightning'] = 1 if entry.get('lightning') == 1 else 0
+                entry['windspeed_25kts'] = 1 if (entry.get('wspd') is not None and float(entry['wspd']) > 25) else 0
+                entry['windgusts_25kts'] = 1 if (entry.get('wgst') is not None and float(entry['wgst']) > 25) else 0
+
+                entry['low_visibility'] = 1 if (entry.get('visib') is not None and float(entry['visib']) < 1.0) else 0
+                entry['low_ceiling'] = 1 if (entry.get('ceiling_ft') is not None and entry['ceiling_ft'] < 1000) else 0
+
+                entry['available'] = not any(
+                    entry.get(flag) == 1 for flag in [
+                        'lightning',
+                        'windspeed_25kts',
+                        'windgusts_25kts',
+                        'low_ceiling',
+                        'low_visibility',
+                    ]
+                )
 
                 station_map[sid] = entry
     else:
@@ -191,7 +242,3 @@ def fetch_and_store(stations: List[str], out_dir: Union[str, Path] = "output/wea
     return res
 
 
-if __name__ == '__main__':
-    import json
-    res = fetch_metars(['BFI', 'RNT'])
-    print(json.dumps(res, indent=2))
