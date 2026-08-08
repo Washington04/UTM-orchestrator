@@ -1,0 +1,9 @@
+{
+  "stations": {
+    "KBFI": null,
+    "KRNT": null
+  },
+  "fetched_at": "2026-08-07T22:58:45Z",
+  "source_url": "https://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&stationString=KBFI%2CKRNT&hoursBeforeNow=2",
+  "error": "403 Client Error: Forbidden for url: https://aviationweather.gov/adds/dataserver_current/httpparam?dataSource=metars&requestType=retrieve&format=xml&stationString=KBFI%2CKRNT&hoursBeforeNow=2"
+}

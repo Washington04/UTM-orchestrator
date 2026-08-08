@@ -8,7 +8,6 @@ __pycache__/
 *.so
 
 # ignore simulation outputs
-output/
 
 # Distribution / packaging
 .Python
