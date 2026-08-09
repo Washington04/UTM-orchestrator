@@ -2,13 +2,13 @@
 
 _A lightweight, standards-aligned UAS Traffic Management (UTM) simulation environment_
 
-UTM Orchestrator is a learning project to explore UTM technical challenges, geospatial approaches, and airspace interoperability. Contributions, suggestions, and discussions are welcome. Please add them to UTM-orchestrator/community_notes. 
+UTM Orchestrator is designed to explore UTM technical challenges, geospatial approaches, and airspace interoperability. Contributions, suggestions, and discussions are welcome. Please add them to UTM-orchestrator/community_notes. 
 
 ***
 
 **Overview**
 
-**UTM Orchestrator** is a developing simulation framework designed to model a full UAS Traffic Management (UTM) ecosystem in the Seattle metropolitan area.
+**UTM Orchestrator** is designed to model a full UAS Traffic Management (UTM) ecosystem in the Seattle metropolitan area.
 
 The system generates:
 - Geographical operating areas (grid-based, meter-accurate)
@@ -20,7 +20,7 @@ The system generates:
 
 The goal is to provide a safe environment to explore how UTM services, implemented in accordance with industry consensus standards, enable safe, scalable, and transparent shared airspace operations.
 
-This project is not intended to be an operational USS, but rather a research and learning tool that mirrors the structure of basic UTM systems.
+This project is not intended to be an operational USS, but rather a research and learning tool that mirrors the structure of UTM services provided by UAS Service Suppliers.
 
 ***
 
